@@ -1,0 +1,5 @@
+import { useQuery } from '@tanstack/react-query'
+import { apiFetch, type ApiResult } from '../../api/client'
+import { useAuth } from '../../auth/AuthContext'
+type Stats={products:number;articles:number;pending_reviews:number;active_users:number}
+export function DashboardPage(){const {accessToken,user}=useAuth();const q=useQuery({queryKey:['admin-dashboard'],queryFn:()=>apiFetch<ApiResult<Stats>>('/admin/dashboard',{},accessToken),enabled:!!accessToken});const s=q.data?.data;return <div className="admin-page"><div className="admin-title"><div><span className="eyebrow">CMS</span><h1>Dashboard</h1><p>Selamat datang, {user?.name}.</p></div></div><div className="stats-grid"><div><span>Produk</span><strong>{s?.products??'—'}</strong></div><div><span>Artikel</span><strong>{s?.articles??'—'}</strong></div><div><span>Review menunggu</span><strong>{s?.pending_reviews??'—'}</strong></div><div><span>User aktif</span><strong>{s?.active_users??'—'}</strong></div></div><div className="panel"><h2>Alur kerja CMS</h2><p>Produk dan artikel dapat disimpan sebagai draft/published. Review dari website masuk sebagai pending dan baru tampil setelah disetujui admin.</p></div></div>}

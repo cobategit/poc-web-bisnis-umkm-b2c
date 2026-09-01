@@ -1,0 +1,5 @@
+import { useQuery } from '@tanstack/react-query'
+import { apiFetch, type ApiResult } from '../../api/client'
+import type { SiteSettings } from '../../types'
+type Page={key:string;title:string;content:string}
+export function AboutPage(){const page=useQuery({queryKey:['page','about'],queryFn:()=>apiFetch<ApiResult<Page>>('/public/pages/about')});const site=useQuery({queryKey:['site'],queryFn:()=>apiFetch<ApiResult<SiteSettings>>('/public/site')});const s=site.data?.data;return <section className="section page-top"><div className="container about-grid"><div><span className="eyebrow">ABOUT</span><h1>{page.data?.data.title||'Tentang Kami'}</h1><div className="prose"><p>{page.data?.data.content}</p></div></div><aside className="panel"><h3>{s?.business_name||'PrintKu'}</h3><p>{s?.tagline}</p><dl className="contact-list"><div><dt>WhatsApp</dt><dd>{s?.whatsapp||'-'}</dd></div><div><dt>Email</dt><dd>{s?.email||'-'}</dd></div><div><dt>Alamat</dt><dd>{s?.address||'-'}</dd></div></dl></aside></div></section>}
