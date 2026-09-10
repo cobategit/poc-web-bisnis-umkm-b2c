@@ -4,6 +4,8 @@ import { Link, useParams } from 'react-router-dom'
 import { apiFetch, assetUrl, type ApiResult } from '../../api/client'
 import type { Product, SiteSettings } from '../../types'
 import { EmptyState } from '../../components/EmptyState'
+import { ProductDetailSkeleton } from '../../components/Skeleton'
+import { usePublicSkeleton } from '../../components/public/PublicLoadingContext'
 
 const rupiah = (v: number) =>
   new Intl.NumberFormat('id-ID', {
@@ -118,14 +120,11 @@ export function ProductDetailPage() {
       .slice(0, 3)
   }, [product, productsQuery.data])
 
-  if (productQuery.isLoading)
-    return (
-      <div className='center-screen'>
-        <div>
-          <strong>Memuat detail produk...</strong>
-        </div>
-      </div>
-    )
+  const showSkeleton = usePublicSkeleton(productQuery.isLoading)
+
+  if (showSkeleton) {
+    return <ProductDetailSkeleton />
+  }
   if (productQuery.isError || !product)
     return (
       <section className='section page-top'>
