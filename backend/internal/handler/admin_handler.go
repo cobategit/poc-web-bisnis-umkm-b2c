@@ -269,6 +269,8 @@ type settingsPayload struct {
 	Email        string `json:"email"`
 	Address      string `json:"address"`
 	Instagram    string `json:"instagram"`
+	MapsURL      string `json:"maps_url"`
+	MapsEmbedURL string `json:"maps_embed_url"`
 }
 
 func (a *App) UpdateSettings(c *gin.Context) {
@@ -277,7 +279,7 @@ func (a *App) UpdateSettings(c *gin.Context) {
 		c.JSON(400, gin.H{"message": "invalid payload"})
 		return
 	}
-	_, err := a.DB.Exec(c, `UPDATE site_settings SET business_name=$1,tagline=$2,hero_title=$3,hero_subtitle=$4,whatsapp=$5,email=$6,address=$7,instagram=$8,updated_at=NOW() WHERE id=1`, r.BusinessName, r.Tagline, r.HeroTitle, r.HeroSubtitle, r.WhatsApp, r.Email, r.Address, r.Instagram)
+	_, err := a.DB.Exec(c, `UPDATE site_settings SET business_name=$1,tagline=$2,hero_title=$3,hero_subtitle=$4,whatsapp=$5,email=$6,address=$7,instagram=$8,maps_url=$9,maps_embed_url=$10,updated_at=NOW() WHERE id=1`, r.BusinessName, r.Tagline, r.HeroTitle, r.HeroSubtitle, r.WhatsApp, r.Email, r.Address, r.Instagram, r.MapsURL, r.MapsEmbedURL)
 	if err != nil {
 		c.JSON(400, gin.H{"message": "update failed"})
 		return

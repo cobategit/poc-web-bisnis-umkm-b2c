@@ -3,7 +3,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch, type ApiResult } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import type { SiteSettings } from '../../types'
+import {
+  extractEmbedUrl,
+  getMapEmbedSrc,
+  getMapDirectLink,
+} from '../../utils/maps'
+
 type Page = { key: string; title: string; content: string }
+
 const initial: SiteSettings = {
   business_name: '',
   tagline: '',
@@ -13,7 +20,10 @@ const initial: SiteSettings = {
   email: '',
   address: '',
   instagram: '',
+  maps_url: '',
+  maps_embed_url: '',
 }
+
 export function ContentAdminPage() {
   const { accessToken, can } = useAuth()
   const qc = useQueryClient()
@@ -41,9 +51,18 @@ export function ContentAdminPage() {
         content: pageQ.data.data.content,
       })
   }, [pageQ.data])
+
   useEffect(() => {
-    if (settingsQ.data) setSettings(settingsQ.data.data)
+    if (settingsQ.data) {
+      setSettings({
+        ...initial,
+        ...settingsQ.data.data,
+        maps_url: settingsQ.data.data.maps_url || '',
+        maps_embed_url: settingsQ.data.data.maps_embed_url || '',
+      })
+    }
   }, [settingsQ.data])
+
   const savePage = useMutation({
     mutationFn: () =>
       apiFetch(
@@ -56,38 +75,86 @@ export function ContentAdminPage() {
       setMsg('Halaman About berhasil disimpan.')
       setError('')
       void qc.invalidateQueries({ queryKey: ['admin-about'] })
+      void qc.invalidateQueries({ queryKey: ['page', 'about'] })
     },
     onError: (e) => {
       setError(e.message)
       setMsg('')
     },
   })
+
   const saveSettings = useMutation({
-    mutationFn: () =>
-      apiFetch(
+    mutationFn: () => {
+      const payload: SiteSettings = {
+        ...settings,
+        maps_embed_url: extractEmbedUrl(settings.maps_embed_url || ''),
+        maps_url: (settings.maps_url || '').trim(),
+      }
+      return apiFetch(
         '/admin/settings',
-        { method: 'PUT', body: JSON.stringify(settings) },
+        { method: 'PUT', body: JSON.stringify(payload) },
         accessToken,
-      ),
-    meta: { action: 'Menyimpan identitas website...' },
+      )
+    },
+    meta: { action: 'Menyimpan pengaturan website & peta lokasi...' },
     onSuccess: () => {
-      setMsg('Identitas website berhasil disimpan.')
-      setError('')
-      void qc.invalidateQueries({ queryKey: ['admin-settings'] })
+      setMsg('Pengaturan website dan lokasi berhasil disimpan.')
+      void qc.invalidateQueries({ queryKey: ['site'] })
     },
     onError: (e) => {
       setError(e.message)
       setMsg('')
     },
   })
+
+  // Perhitungan live preview peta
+  const previewEmbedSrc = getMapEmbedSrc(
+    settings.maps_embed_url,
+    settings.address,
+  )
+  const previewDirectLink = getMapDirectLink(
+    settings.maps_url,
+    settings.address,
+  )
+
+  const handleEmbedChange = (val: string) => {
+    // Jika user menempelkan kode iframe lengkap, langsung ekstrak URL-nya
+    const cleaned = extractEmbedUrl(val)
+    setSettings({ ...settings, maps_embed_url: cleaned })
+  }
+
+  const handleUseAddressFallback = () => {
+    if (!settings.address.trim()) {
+      alert('Isi alamat terlebih dahulu.')
+      return
+    }
+    const generated = `https://maps.google.com/maps?q=${encodeURIComponent(
+      settings.address.trim(),
+    )}&t=&z=15&ie=UTF8&iwloc=&output=embed`
+    setSettings({
+      ...settings,
+      maps_embed_url: generated,
+      maps_url:
+        settings.maps_url ||
+        `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+          settings.address.trim(),
+        )}`,
+    })
+  }
+
   return (
     <div className='admin-page'>
       <div className='admin-title'>
         <div>
           <span className='eyebrow'>CMS</span>
-          <h1>Konten & About</h1>
+          <h1>Konten & Lokasi</h1>
+          <p>
+            Kelola identitas website, kontak, lokasi peta Google Maps, dan
+            halaman About.
+          </p>
         </div>
       </div>
+
       {msg && (
         <div
           style={{
@@ -103,6 +170,7 @@ export function ContentAdminPage() {
           {msg}
         </div>
       )}
+
       {error && (
         <div
           style={{
@@ -118,6 +186,8 @@ export function ContentAdminPage() {
           {error}
         </div>
       )}
+
+      {/* Form Identitas & Lokasi */}
       <form
         className='panel form-grid'
         onSubmit={(e) => {
@@ -125,41 +195,225 @@ export function ContentAdminPage() {
           saveSettings.mutate()
         }}
       >
-        <h2>Identitas Website</h2>
-        {(Object.entries(settings) as [keyof SiteSettings, string][]).map(
-          ([k, v]) => (
-            <label
-              key={k}
-              className={
-                ['hero_subtitle', 'address'].includes(k) ? 'span-2' : ''
-              }
+        <h2>Identitas Website & Hero</h2>
+
+        <label>
+          Nama Bisnis
+          <input
+            value={settings.business_name}
+            onChange={(e) =>
+              setSettings({ ...settings, business_name: e.target.value })
+            }
+            placeholder='contoh: DR Printing'
+            required
+          />
+        </label>
+
+        <label>
+          Tagline
+          <input
+            value={settings.tagline}
+            onChange={(e) =>
+              setSettings({ ...settings, tagline: e.target.value })
+            }
+            placeholder='contoh: Solusi cetak cepat dan berkualitas'
+          />
+        </label>
+
+        <label className='span-2'>
+          Judul Hero (Halaman Utama)
+          <input
+            value={settings.hero_title}
+            onChange={(e) =>
+              setSettings({ ...settings, hero_title: e.target.value })
+            }
+          />
+        </label>
+
+        <label className='span-2'>
+          Subjudul Hero
+          <textarea
+            rows={2}
+            value={settings.hero_subtitle}
+            onChange={(e) =>
+              setSettings({ ...settings, hero_subtitle: e.target.value })
+            }
+          />
+        </label>
+
+        <h2 style={{ marginTop: '16px' }}>Kontak & Media Sosial</h2>
+
+        <label>
+          Nomor WhatsApp
+          <input
+            value={settings.whatsapp}
+            onChange={(e) =>
+              setSettings({ ...settings, whatsapp: e.target.value })
+            }
+            placeholder='contoh: 08123456789'
+          />
+        </label>
+
+        <label>
+          Email Bisnis
+          <input
+            type='email'
+            value={settings.email}
+            onChange={(e) =>
+              setSettings({ ...settings, email: e.target.value })
+            }
+            placeholder='contoh: halo@drprinting.com'
+          />
+        </label>
+
+        <label className='span-2'>
+          Instagram
+          <input
+            value={settings.instagram}
+            onChange={(e) =>
+              setSettings({ ...settings, instagram: e.target.value })
+            }
+            placeholder='contoh: @drprinting'
+          />
+        </label>
+
+        <label className='span-2'>
+          Alamat Lengkap Workshop / Toko
+          <textarea
+            rows={3}
+            value={settings.address}
+            onChange={(e) =>
+              setSettings({ ...settings, address: e.target.value })
+            }
+            placeholder='contoh: Jl. Percetakan Negara No. 45, Jakarta Pusat'
+          />
+        </label>
+
+        <h2 style={{ marginTop: '16px' }}>Peta & Lokasi (Google Maps)</h2>
+
+        <label className='span-2'>
+          <span>Link Google Maps (Buka Lokasi / Petunjuk Arah)</span>
+          <input
+            value={settings.maps_url || ''}
+            onChange={(e) =>
+              setSettings({ ...settings, maps_url: e.target.value })
+            }
+            placeholder='https://maps.app.goo.gl/... atau link Google Maps'
+          />
+          <span className='cms-helper-text'>
+            Tautan ini akan digunakan ketika pengunjung mengklik tombol{' '}
+            <strong>"Buka di Google Maps"</strong> untuk navigasi GPS.
+          </span>
+        </label>
+
+        <label className='span-2'>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <span>Embed Google Maps (URL atau Kode &lt;iframe&gt;)</span>
+            <button
+              type='button'
+              className='btn btn-ghost btn-sm'
+              style={{ padding: '4px 10px', fontSize: '11px' }}
+              onClick={handleUseAddressFallback}
+              title='Generate URL embed otomatis dari teks alamat di atas'
             >
-              {k.replaceAll('_', ' ')}
-              {k === 'hero_subtitle' || k === 'address' ? (
-                <textarea
-                  rows={3}
-                  value={v}
-                  onChange={(e) =>
-                    setSettings({ ...settings, [k]: e.target.value })
-                  }
-                />
+              📍 Generate dari Alamat
+            </button>
+          </div>
+          <input
+            value={settings.maps_embed_url || ''}
+            onChange={(e) => handleEmbedChange(e.target.value)}
+            placeholder='https://www.google.com/maps/embed?... atau <iframe src="..."></iframe>'
+          />
+          <span className='cms-helper-text'>
+            Buka Google Maps &rarr; cari lokasi workshop &rarr; klik{' '}
+            <strong>Bagikan</strong> &rarr; pilih tab{' '}
+            <strong>Sematkan peta</strong> &rarr; salin HTML atau URL src
+            iframe-nya.
+          </span>
+        </label>
+
+        {/* Live Preview Peta */}
+        <div className='span-2 cms-map-preview-card'>
+          <div className='cms-map-preview-header'>
+            <span>
+              🗺️ Pratinjau Tampilan Peta:{' '}
+              {settings.maps_embed_url ? (
+                <strong style={{ color: 'var(--success)' }}>
+                  (Kustom Embed URL)
+                </strong>
+              ) : settings.address ? (
+                <strong style={{ color: 'var(--blue)' }}>
+                  (Fallback Otomatis dari Alamat)
+                </strong>
               ) : (
-                <input
-                  value={v}
-                  onChange={(e) =>
-                    setSettings({ ...settings, [k]: e.target.value })
-                  }
-                />
+                <span style={{ color: 'var(--muted)' }}>(Belum diatur)</span>
               )}
-            </label>
-          ),
-        )}
+            </span>
+            {previewDirectLink && (
+              <a
+                href={previewDirectLink}
+                target='_blank'
+                rel='noopener noreferrer'
+                style={{
+                  color: 'var(--blue)',
+                  fontWeight: 600,
+                  fontSize: '12px',
+                }}
+              >
+                Uji Buka di Google Maps ↗
+              </a>
+            )}
+          </div>
+          {previewEmbedSrc ? (
+            <div className='cms-map-preview-frame'>
+              <iframe
+                src={previewEmbedSrc}
+                title='Pratinjau Peta Google Maps'
+                loading='lazy'
+                style={{
+                  width: '100%',
+                  height: '240px',
+                  border: 'none',
+                  display: 'block',
+                }}
+              />
+            </div>
+          ) : (
+            <div
+              style={{
+                padding: '30px',
+                textAlign: 'center',
+                color: 'var(--muted)',
+                fontSize: '13px',
+              }}
+            >
+              Peta belum memiliki sumber embed atau alamat. Masukkan alamat atau
+              URL embed di atas untuk melihat pratinjau.
+            </div>
+          )}
+        </div>
+
         {can('settings.write') && (
-          <button className='btn span-2' disabled={saveSettings.isPending}>
-            {saveSettings.isPending ? 'Menyimpan...' : 'Simpan Identitas'}
+          <button
+            type='submit'
+            className='btn span-2'
+            style={{ marginTop: '8px' }}
+            disabled={saveSettings.isPending}
+          >
+            {saveSettings.isPending
+              ? 'Menyimpan...'
+              : 'Simpan Identitas & Lokasi'}
           </button>
         )}
       </form>
+
+      {/* Form Halaman About */}
       <form
         className='panel form-stack'
         onSubmit={(e) => {
@@ -167,16 +421,17 @@ export function ContentAdminPage() {
           savePage.mutate()
         }}
       >
-        <h2>Halaman About</h2>
+        <h2>Halaman About (Tentang Kami)</h2>
         <label>
-          Judul
+          Judul Halaman
           <input
             value={about.title}
             onChange={(e) => setAbout({ ...about, title: e.target.value })}
+            required
           />
         </label>
         <label>
-          Konten
+          Konten Tentang Kami
           <textarea
             rows={10}
             value={about.content}
@@ -184,8 +439,8 @@ export function ContentAdminPage() {
           />
         </label>
         {can('pages.write') && (
-          <button className='btn' disabled={savePage.isPending}>
-            {savePage.isPending ? 'Menyimpan...' : 'Simpan About'}
+          <button type='submit' className='btn' disabled={savePage.isPending}>
+            {savePage.isPending ? 'Menyimpan...' : 'Simpan Halaman About'}
           </button>
         )}
       </form>

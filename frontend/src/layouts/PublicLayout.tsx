@@ -17,8 +17,8 @@ function PublicShell() {
       <header className='site-header'>
         <div className='container nav-wrap'>
           <NavLink to='/' className='brand'>
-            <span className='brand-mark'>P</span>
-            <span>PrintKu</span>
+            <span className='brand-mark'>DR</span>
+            <span>DR Printing</span>
           </NavLink>
           <nav className='public-nav'>
             {links.map(([to, label]) => (
@@ -43,8 +43,8 @@ function PublicShell() {
         <div className='container footer-grid'>
           <div>
             <div className='brand light'>
-              <span className='brand-mark'>P</span>
-              <span>PrintKu</span>
+              <span className='brand-mark'>DR</span>
+              <span>DR Printing</span>
             </div>
             <p>
               Partner printing untuk bisnis, event, promosi, dan kebutuhan

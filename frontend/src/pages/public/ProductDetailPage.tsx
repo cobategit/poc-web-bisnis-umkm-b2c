@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type TouchEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { apiFetch, assetUrl, type ApiResult } from '../../api/client'
@@ -6,6 +7,7 @@ import type { Product, SiteSettings } from '../../types'
 import { EmptyState } from '../../components/EmptyState'
 import { ProductDetailSkeleton } from '../../components/Skeleton'
 import { usePublicSkeleton } from '../../components/public/PublicLoadingContext'
+import { SEO } from '../../components/SEO'
 
 const rupiah = (v: number) =>
   new Intl.NumberFormat('id-ID', {
@@ -49,6 +51,46 @@ function WhatsAppIcon({ size = 20 }: { size?: number }) {
   )
 }
 
+function ExpandIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox='0 0 24 24'
+      fill='none'
+      stroke='currentColor'
+      strokeWidth='2'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      aria-hidden='true'
+    >
+      <polyline points='15 3 21 3 21 9' />
+      <polyline points='9 21 3 21 3 15' />
+      <line x1='21' y1='3' x2='14' y2='10' />
+      <line x1='3' y1='21' x2='10' y2='14' />
+    </svg>
+  )
+}
+
+function CloseIcon({ size = 22 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox='0 0 24 24'
+      fill='none'
+      stroke='currentColor'
+      strokeWidth='2'
+      strokeLinecap='round'
+      strokeLinejoin='round'
+      aria-hidden='true'
+    >
+      <line x1='18' y1='6' x2='6' y2='18' />
+      <line x1='6' y1='6' x2='18' y2='18' />
+    </svg>
+  )
+}
+
 export function ProductDetailPage() {
   const { slug = '' } = useParams()
   const productQuery = useQuery({
@@ -66,7 +108,9 @@ export function ProductDetailPage() {
   })
   const product = productQuery.data?.data
   const [activeIndex, setActiveIndex] = useState(0)
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false)
   const touchStartX = useRef<number | null>(null)
+  const lightboxTouchStartX = useRef<number | null>(null)
 
   const gallery = useMemo(() => {
     if (!product) return []
@@ -79,6 +123,7 @@ export function ProductDetailPage() {
 
   useEffect(() => {
     setActiveIndex(0)
+    setIsLightboxOpen(false)
   }, [product?.id])
 
   const activeImage = gallery[activeIndex] ?? ''
@@ -106,6 +151,42 @@ export function ProductDetailPage() {
     if (distance > 0) showPreviousImage()
     else showNextImage()
   }
+
+  function handleLightboxTouchStart(event: TouchEvent<HTMLDivElement>) {
+    lightboxTouchStartX.current = event.touches[0]?.clientX ?? null
+  }
+
+  function handleLightboxTouchEnd(event: TouchEvent<HTMLDivElement>) {
+    if (lightboxTouchStartX.current == null || gallery.length < 2) return
+    const endX = event.changedTouches[0]?.clientX ?? lightboxTouchStartX.current
+    const distance = endX - lightboxTouchStartX.current
+    lightboxTouchStartX.current = null
+    if (Math.abs(distance) < 45) return
+    if (distance > 0) showPreviousImage()
+    else showNextImage()
+  }
+
+  useEffect(() => {
+    if (!isLightboxOpen) return
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsLightboxOpen(false)
+      } else if (event.key === 'ArrowLeft') {
+        showPreviousImage()
+      } else if (event.key === 'ArrowRight') {
+        showNextImage()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.body.style.overflow = prevOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isLightboxOpen, gallery.length])
 
   const related = useMemo(() => {
     if (!product) return []
@@ -143,7 +224,7 @@ export function ProductDetailPage() {
     )
 
   const phone = normalizeWhatsApp(siteQuery.data?.data.whatsapp ?? '')
-  const businessName = siteQuery.data?.data.business_name || 'PrintKu'
+  const businessName = siteQuery.data?.data.business_name || 'DR Printing'
   const formattedPrice = rupiah(product.price_start)
   const priceInfo =
     product.price_start > 0
@@ -155,8 +236,76 @@ export function ProductDetailPage() {
     ? `https://wa.me/${phone}?text=${whatsappText}`
     : ''
 
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  const productImageUrl = product.image_url
+    ? assetUrl(product.image_url)
+    : undefined
+
+  const productJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    image: productImageUrl,
+    description: product.short_description || product.description,
+    category: product.category,
+    brand: {
+      '@type': 'Brand',
+      name: businessName,
+    },
+    offers: {
+      '@type': 'Offer',
+      url: `${origin}/produk/${product.slug}`,
+      priceCurrency: 'IDR',
+      price: product.price_start,
+      availability: 'https://schema.org/InStock',
+      itemCondition: 'https://schema.org/NewCondition',
+      seller: {
+        '@type': 'Organization',
+        name: businessName,
+      },
+    },
+  }
+
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Beranda',
+        item: `${origin}/`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Produk',
+        item: `${origin}/produk`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 3,
+        name: product.name,
+        item: `${origin}/produk/${product.slug}`,
+      },
+    ],
+  }
+
   return (
     <>
+      <SEO
+        title={`Cetak ${product.name}`}
+        description={
+          product.short_description ||
+          product.description ||
+          `Layanan cetak ${product.name} cepat dan berkualitas.`
+        }
+        canonicalPath={`/produk/${product.slug}`}
+        image={productImageUrl}
+        type='product'
+        siteName={businessName}
+        jsonLd={[productJsonLd, breadcrumbJsonLd]}
+      />
       <section className='product-detail-hero'>
         <div className='container'>
           <div className='product-breadcrumb'>
@@ -177,14 +326,49 @@ export function ProductDetailPage() {
                 tabIndex={gallery.length > 1 ? 0 : -1}
                 aria-label={`Galeri ${product.name}`}
               >
-                <div className='product-main-image'>
+                <div
+                  className={`product-main-image ${activeImage ? 'has-image' : ''}`}
+                  role={activeImage ? 'button' : undefined}
+                  tabIndex={activeImage ? 0 : undefined}
+                  onClick={() => {
+                    if (activeImage) setIsLightboxOpen(true)
+                  }}
+                  onKeyDown={(event) => {
+                    if (
+                      activeImage &&
+                      (event.key === 'Enter' || event.key === ' ')
+                    ) {
+                      event.preventDefault()
+                      setIsLightboxOpen(true)
+                    }
+                  }}
+                  title={
+                    activeImage
+                      ? 'Klik untuk melihat gambar keseluruhan'
+                      : undefined
+                  }
+                  aria-label={
+                    activeImage
+                      ? `${product.name} - Klik untuk melihat gambar keseluruhan`
+                      : undefined
+                  }
+                >
                   {activeImage ? (
-                    <img
-                      key={activeImage}
-                      className='product-slide-image'
-                      src={assetUrl(activeImage)}
-                      alt={`${product.name} gambar ${activeIndex + 1}`}
-                    />
+                    <>
+                      <img
+                        key={activeImage}
+                        className='product-slide-image'
+                        src={assetUrl(activeImage)}
+                        alt={`${product.name} gambar ${activeIndex + 1}`}
+                      />
+                      <div
+                        className='product-image-zoom-badge'
+                        aria-hidden='true'
+                      >
+                        <ExpandIcon size={14} />
+                        <span>Lihat Penuh</span>
+                      </div>
+                    </>
                   ) : (
                     <div className='image-placeholder'>{product.category}</div>
                   )}
@@ -196,7 +380,10 @@ export function ProductDetailPage() {
                       className='product-slider-arrow product-slider-prev'
                       type='button'
                       aria-label='Gambar sebelumnya'
-                      onClick={showPreviousImage}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        showPreviousImage()
+                      }}
                     >
                       ‹
                     </button>
@@ -204,7 +391,10 @@ export function ProductDetailPage() {
                       className='product-slider-arrow product-slider-next'
                       type='button'
                       aria-label='Gambar berikutnya'
-                      onClick={showNextImage}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        showNextImage()
+                      }}
                     >
                       ›
                     </button>
@@ -377,6 +567,116 @@ export function ProductDetailPage() {
           <span>Chat WhatsApp</span>
         </a>
       )}
+
+      {isLightboxOpen &&
+        activeImage &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className='product-lightbox-overlay'
+            role='dialog'
+            aria-modal='true'
+            aria-label={`Tampilan penuh gambar ${product.name}`}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setIsLightboxOpen(false)
+            }}
+          >
+            <div className='lightbox-header'>
+              <div className='lightbox-info'>
+                {gallery.length > 1 && (
+                  <span className='lightbox-counter' aria-live='polite'>
+                    {activeIndex + 1} / {gallery.length}
+                  </span>
+                )}
+                <span className='lightbox-title'>{product.name}</span>
+              </div>
+              <button
+                type='button'
+                className='lightbox-close-btn'
+                onClick={() => setIsLightboxOpen(false)}
+                aria-label='Tutup tampilan penuh'
+                title='Tutup (Esc)'
+              >
+                <CloseIcon size={22} />
+              </button>
+            </div>
+
+            <div
+              className='lightbox-body'
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setIsLightboxOpen(false)
+              }}
+              onTouchStart={handleLightboxTouchStart}
+              onTouchEnd={handleLightboxTouchEnd}
+            >
+              {gallery.length > 1 && (
+                <button
+                  type='button'
+                  className='lightbox-nav-btn lightbox-nav-prev'
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    showPreviousImage()
+                  }}
+                  aria-label='Gambar sebelumnya'
+                  title='Gambar sebelumnya (Panah Kiri)'
+                >
+                  ‹
+                </button>
+              )}
+
+              <div
+                className='lightbox-image-wrapper'
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) setIsLightboxOpen(false)
+                }}
+              >
+                <img
+                  key={activeImage}
+                  className='lightbox-image'
+                  src={assetUrl(activeImage)}
+                  alt={`${product.name} tampilan penuh ${activeIndex + 1}`}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+
+              {gallery.length > 1 && (
+                <button
+                  type='button'
+                  className='lightbox-nav-btn lightbox-nav-next'
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    showNextImage()
+                  }}
+                  aria-label='Gambar berikutnya'
+                  title='Gambar berikutnya (Panah Kanan)'
+                >
+                  ›
+                </button>
+              )}
+            </div>
+
+            {gallery.length > 1 && (
+              <div
+                className='lightbox-thumbnails'
+                aria-label='Pilih gambar produk'
+                onClick={(e) => e.stopPropagation()}
+              >
+                {gallery.map((image, index) => (
+                  <button
+                    key={`lightbox-${image}-${index}`}
+                    className={`lightbox-thumb ${activeIndex === index ? 'active' : ''}`}
+                    type='button'
+                    onClick={() => setActiveIndex(index)}
+                    aria-label={`Tampilkan gambar ${index + 1}`}
+                  >
+                    <img src={assetUrl(image)} alt='' />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>,
+          document.body,
+        )}
     </>
   )
 }

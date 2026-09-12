@@ -7,9 +7,9 @@ import (
 )
 
 func (a *App) PublicSite(c *gin.Context) {
-	var s struct{ BusinessName, Tagline, HeroTitle, HeroSubtitle, WhatsApp, Email, Address, Instagram string }
-	err := a.DB.QueryRow(c, `SELECT business_name,tagline,hero_title,hero_subtitle,whatsapp,email,address,instagram FROM site_settings WHERE id=1`).
-		Scan(&s.BusinessName, &s.Tagline, &s.HeroTitle, &s.HeroSubtitle, &s.WhatsApp, &s.Email, &s.Address, &s.Instagram)
+	var s struct{ BusinessName, Tagline, HeroTitle, HeroSubtitle, WhatsApp, Email, Address, Instagram, MapsURL, MapsEmbedURL string }
+	err := a.DB.QueryRow(c, `SELECT business_name,tagline,hero_title,hero_subtitle,whatsapp,email,address,instagram,COALESCE(maps_url,''),COALESCE(maps_embed_url,'') FROM site_settings WHERE id=1`).
+		Scan(&s.BusinessName, &s.Tagline, &s.HeroTitle, &s.HeroSubtitle, &s.WhatsApp, &s.Email, &s.Address, &s.Instagram, &s.MapsURL, &s.MapsEmbedURL)
 	if err != nil {
 		c.JSON(500, gin.H{"message": "failed to load settings"})
 		return
@@ -17,6 +17,7 @@ func (a *App) PublicSite(c *gin.Context) {
 	c.JSON(200, gin.H{"data": gin.H{
 		"business_name": s.BusinessName, "tagline": s.Tagline, "hero_title": s.HeroTitle, "hero_subtitle": s.HeroSubtitle,
 		"whatsapp": s.WhatsApp, "email": s.Email, "address": s.Address, "instagram": s.Instagram,
+		"maps_url": s.MapsURL, "maps_embed_url": s.MapsEmbedURL,
 	}})
 }
 

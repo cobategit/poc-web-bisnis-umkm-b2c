@@ -46,6 +46,8 @@ func main() {
 	}))
 	r.Static("/uploads", cfg.UploadDir)
 	r.GET("/health", func(c *gin.Context) { c.JSON(200, gin.H{"status": "ok"}) })
+	r.GET("/robots.txt", app.RobotsTxt)
+	r.GET("/sitemap.xml", app.SitemapXML)
 
 	api := r.Group("/api/v1")
 	pub := api.Group("/public")

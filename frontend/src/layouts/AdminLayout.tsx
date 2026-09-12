@@ -32,8 +32,8 @@ function AdminShell() {
       <AdminGlobalLoader />
       <aside className='sidebar'>
         <NavLink to='/' className='brand light'>
-          <span className='brand-mark'>P</span>
-          <span>PrintKu CMS</span>
+          <span className='brand-mark'>DR</span>
+          <span>DR Printing CMS</span>
         </NavLink>
         <div className='sidebar-user'>
           <small>Login sebagai</small>
