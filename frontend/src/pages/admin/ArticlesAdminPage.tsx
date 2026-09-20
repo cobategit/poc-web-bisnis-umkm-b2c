@@ -5,6 +5,19 @@ import { useAuth } from '../../auth/AuthContext'
 import { useAdminLoading } from '../../components/admin/AdminLoadingContext'
 import type { Article } from '../../types'
 
+import { CKEditor } from '@ckeditor/ckeditor5-react'
+import {
+  ClassicEditor,
+  Essentials,
+  Bold,
+  Italic,
+  Paragraph,
+  Heading,
+  List,
+  Link,
+} from 'ckeditor5'
+import 'ckeditor5/ckeditor5.css'
+
 type Form = {
   title: string
   slug: string
@@ -21,6 +34,29 @@ const empty: Form = {
   cover_image_url: '',
   status: 'draft',
 }
+
+const editorConfig = {
+  licenseKey: 'GPL',
+  plugins: [Essentials, Bold, Italic, Paragraph, Heading, List, Link],
+  toolbar: [
+    'heading',
+    '|',
+    'bold',
+    'italic',
+    '|',
+    'link',
+    'bulletedList',
+    'numberedList',
+    '|',
+    'undo',
+    'redo',
+  ],
+  link: {
+    defaultProtocol: 'https://',
+    addTargetToExternalLinks: true,
+  },
+}
+
 export function ArticlesAdminPage() {
   const { accessToken, can } = useAuth()
   const { withAction } = useAdminLoading()
@@ -136,14 +172,27 @@ export function ArticlesAdminPage() {
               onChange={(e) => setForm({ ...form, excerpt: e.target.value })}
             />
           </label>
-          <label className='span-2'>
-            Isi artikel
-            <textarea
-              rows={10}
-              value={form.content}
-              onChange={(e) => setForm({ ...form, content: e.target.value })}
-            />
-          </label>
+          <div
+            className='span-2'
+            style={{
+              display: 'grid',
+              gap: '7px',
+              fontSize: '13px',
+              fontWeight: 800,
+            }}
+          >
+            <span>Isi artikel</span>
+            <div style={{ color: '#000', fontWeight: 'normal' }}>
+              <CKEditor
+                editor={ClassicEditor}
+                config={editorConfig}
+                data={form.content}
+                onChange={(event, editor) => {
+                  setForm((prev) => ({ ...prev, content: editor.getData() }))
+                }}
+              />
+            </div>
+          </div>
           <label>
             Upload Cover
             <input

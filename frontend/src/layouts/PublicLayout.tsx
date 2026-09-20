@@ -55,12 +55,12 @@ function PublicShell() {
             <strong>Menu</strong>
             <p>Produk · Artikel · Review · About</p>
           </div>
-          <div>
+          {/* <div>
             <strong>CMS</strong>
             <p>
               <NavLink to='/cms/login'>Login Admin</NavLink>
             </p>
-          </div>
+          </div> */}
         </div>
       </footer>
     </>

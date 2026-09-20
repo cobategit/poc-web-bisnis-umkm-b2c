@@ -2243,3 +2243,8 @@ textarea {
     height: 300px;
   }
 }
+
+/* Override CKEditor default height */
+.ck-editor__editable_inline {
+  min-height: 400px;
+}

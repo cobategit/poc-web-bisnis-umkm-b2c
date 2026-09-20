@@ -5,6 +5,7 @@ import { Skeleton } from '../../components/Skeleton'
 import { usePublicSkeleton } from '../../components/public/PublicLoadingContext'
 import { getMapEmbedSrc, getMapDirectLink } from '../../utils/maps'
 import { SEO } from '../../components/SEO'
+import DOMPurify from 'dompurify'
 
 type Page = { key: string; title: string; content: string }
 
@@ -91,9 +92,12 @@ export function AboutPage() {
               ) : (
                 <>
                   <h1>{page.data?.data.title || 'Tentang Kami'}</h1>
-                  <div className='prose'>
-                    <p>{page.data?.data.content}</p>
-                  </div>
+                  <div
+                    className='prose'
+                    dangerouslySetInnerHTML={{
+                      __html: DOMPurify.sanitize(page.data?.data.content || ''),
+                    }}
+                  />
                 </>
               )}
             </div>

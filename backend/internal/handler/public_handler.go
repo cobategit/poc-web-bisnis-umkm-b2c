@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -99,7 +100,20 @@ func (a *App) PublicArticle(c *gin.Context) {
 }
 
 func (a *App) PublicReviews(c *gin.Context) {
-	rows, err := a.DB.Query(c, `SELECT id::text,customer_name,rating,message,is_featured,created_at FROM reviews WHERE is_approved=true ORDER BY is_featured DESC,created_at DESC`)
+	pageStr := c.DefaultQuery("page", "1")
+	limitStr := c.DefaultQuery("limit", "10")
+	
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		page = 1
+	}
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit < 1 || limit > 100 {
+		limit = 10
+	}
+	offset := (page - 1) * limit
+
+	rows, err := a.DB.Query(c, `SELECT id::text,customer_name,rating,message,is_featured,created_at FROM reviews WHERE is_approved=true ORDER BY is_featured DESC,created_at DESC LIMIT $1 OFFSET $2`, limit+1, offset)
 	if err != nil {
 		c.JSON(500, gin.H{"message": "failed to load reviews"})
 		return
@@ -115,7 +129,15 @@ func (a *App) PublicReviews(c *gin.Context) {
 			items = append(items, gin.H{"id": id, "customer_name": name, "rating": rating, "message": msg, "is_featured": featured, "created_at": created})
 		}
 	}
-	c.JSON(200, gin.H{"data": items})
+
+	var nextPage *int
+	if len(items) > limit {
+		items = items[:limit]
+		next := page + 1
+		nextPage = &next
+	}
+
+	c.JSON(200, gin.H{"data": items, "next_page": nextPage})
 }
 
 func (a *App) SubmitReview(c *gin.Context) {

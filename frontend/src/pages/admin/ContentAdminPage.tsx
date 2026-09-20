@@ -9,6 +9,18 @@ import {
   getMapDirectLink,
 } from '../../utils/maps'
 
+import { CKEditor } from '@ckeditor/ckeditor5-react'
+import {
+  ClassicEditor,
+  Essentials,
+  Bold,
+  Italic,
+  Paragraph,
+  Heading,
+  List,
+  Link,
+} from 'ckeditor5'
+
 type Page = { key: string; title: string; content: string }
 
 const initial: SiteSettings = {
@@ -22,6 +34,28 @@ const initial: SiteSettings = {
   instagram: '',
   maps_url: '',
   maps_embed_url: '',
+}
+
+const editorConfig = {
+  licenseKey: 'GPL',
+  plugins: [Essentials, Bold, Italic, Paragraph, Heading, List, Link],
+  toolbar: [
+    'heading',
+    '|',
+    'bold',
+    'italic',
+    '|',
+    'link',
+    'bulletedList',
+    'numberedList',
+    '|',
+    'undo',
+    'redo',
+  ],
+  link: {
+    defaultProtocol: 'https://',
+    addTargetToExternalLinks: true,
+  },
 }
 
 export function ContentAdminPage() {
@@ -430,14 +464,26 @@ export function ContentAdminPage() {
             required
           />
         </label>
-        <label>
-          Konten Tentang Kami
-          <textarea
-            rows={10}
-            value={about.content}
-            onChange={(e) => setAbout({ ...about, content: e.target.value })}
-          />
-        </label>
+        <div
+          style={{
+            display: 'grid',
+            gap: '7px',
+            fontSize: '13px',
+            fontWeight: 800,
+          }}
+        >
+          <span>Konten Tentang Kami</span>
+          <div style={{ color: '#000', fontWeight: 'normal' }}>
+            <CKEditor
+              editor={ClassicEditor}
+              config={editorConfig}
+              data={about.content}
+              onChange={(event, editor) => {
+                setAbout((prev) => ({ ...prev, content: editor.getData() }))
+              }}
+            />
+          </div>
+        </div>
         {can('pages.write') && (
           <button type='submit' className='btn' disabled={savePage.isPending}>
             {savePage.isPending ? 'Menyimpan...' : 'Simpan Halaman About'}

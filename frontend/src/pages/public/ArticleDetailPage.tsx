@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { apiFetch, assetUrl, type ApiResult } from '../../api/client'
+import DOMPurify from 'dompurify'
 import type { Article } from '../../types'
 import { ArticleDetailSkeleton } from '../../components/Skeleton'
 import { usePublicSkeleton } from '../../components/public/PublicLoadingContext'
@@ -94,9 +95,7 @@ export function ArticleDetailPage() {
           />
         )}
         <div className='prose'>
-          {(a.content || '').split('\n').map((p, i) => (
-            <p key={i}>{p}</p>
-          ))}
+          <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(a.content || '') }} />
         </div>
       </article>
     </>
